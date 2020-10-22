@@ -1,0 +1,52 @@
+# TODO: NEEDS TO BE DEBUGGED ON GPU INSTANCE
+
+# Use the official gpu image as a parent image.
+FROM nvidia/cuda:11.1-runtime-ubuntu18.04
+
+# Confirm Nvidia drivers
+RUN nvidia-smi
+
+# System packages 
+RUN apt-get update && apt-get install --no-install-recommends --no-install-suggests -y curl wget && \
+    apt-get install unzip && \
+    apt-get -y install python3 && \
+    apt-get -y install python3-pip
+
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+    ~/miniconda.sh -b -p /opt/conda && \
+    rm ~/miniconda.sh &&
+
+# Set the working directory.
+WORKDIR /usr/src/app
+
+# Initialize conda in bash config fiiles:
+RUN conda init bash
+
+ENV PATH="/root/miniconda3/bin:${PATH}"
+ARG PATH="/root/miniconda3/bin:${PATH}"
+
+RUN conda update -y conda
+
+# Install Python packages from conda
+#COPY environment.yml .
+RUN conda env create -f environment.yml
+RUN conda update -n base -c defaults conda
+RUN conda create -n sandbox1 python=3
+
+# Activate the environment, and make sure it's activated:
+RUN echo "conda activate sandbox1" > ~/.bashrc
+
+# Copy the file from your host to your current location.
+COPY requirements-gpu.txt .
+
+# Run the command inside your image filesystem.
+RUN conda install --file requirements-gpu.txt
+
+# Add metadata to the image to describe which port the container is listening on at runtime.
+# EXPOSE 8080
+
+# Copy the rest of your app's source code from your host to your image filesystem.
+COPY . .
+
+# Run the specified command within the container.
+CMD [ "python", "app/main.py" ]
